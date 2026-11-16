@@ -58,11 +58,20 @@ main{padding:0 var(--pad) 96px}
 .prose{max-width:36em}
 .prose p+p{margin-top:1.4em}
 
-/* 페이지를 옮길 때 화면을 덮는 색 판 (#88) */
-.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--accent);transform:translateX(100%);pointer-events:none}
-.wipe.is-cover{transform:none;transition:transform .4s cubic-bezier(.7,0,.3,1)}
+/* 페이지를 옮길 때 아래에서 올라와 화면을 덮는 먹색 막 (#88) */
+.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--ink);color:var(--paper);transform:translateY(101%);
+  pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.wipe::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--accent)}
+.wipe-word{display:block;overflow:hidden;padding:.1em .1em .22em;font-family:var(--serif);font-style:italic;font-size:clamp(56px,11vw,168px);line-height:1}
+.wipe-word span{display:block;transform:translateY(120%)}
+.wipe.is-cover{transform:none;transition:transform .6s cubic-bezier(.76,0,.24,1)}
+.wipe.is-cover .wipe-word span{transform:none;transition:transform .5s var(--out3) .3s}
 html.wipe-in .wipe{transform:none}
-html.wipe-in .wipe.is-leave{transform:translateX(-100%);transition:transform .4s cubic-bezier(.7,0,.3,1)}
+html.wipe-in .wipe .wipe-word span{transform:none}
+html.wipe-in .wipe.is-leave{transform:translateY(-101%);transition:transform .7s cubic-bezier(.76,0,.24,1) .14s}
+html.wipe-in .wipe.is-leave .wipe-word span{transform:translateY(-120%);transition:transform .45s cubic-bezier(.55,.085,.68,.53)}
+html.wipe-in main.rise{transform:translateY(48px);opacity:0}
+html.wipe-in.wipe-go main.rise{transform:none;opacity:1;transition:transform .9s var(--out3) .32s,opacity .6s ease-out .32s}
 
 /* 커서 (#6) — 마우스가 있는 기기에서만 켠다 */
 .cur{position:fixed;left:0;top:0;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s var(--out2);will-change:transform}
@@ -117,7 +126,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 </style>
 </head>
 <body>
-<div class="wipe" id="wipe" aria-hidden="true"></div>
+<div class="wipe" id="wipe" aria-hidden="true"><span class="wipe-word"><span id="wipe-text">Note</span></span></div>
 
 <header class="site-head">
   <nav class="menu">
@@ -127,7 +136,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   </nav>
 </header>
 
-<main>
+<main class="rise">
   <h1 class="title">Note</h1>
 
   <section class="entry">
@@ -240,17 +249,18 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   });
 })();
 
-/* ===== 공통 ③ 메뉴를 누르면 색 판이 화면을 덮고, 다음 페이지에서 빠져나간다 (#88 색 판이 덮는 전환)
-   강조색 판이 오른쪽 바깥에서 0.4초에 화면을 덮는다 → 다 덮이면 다음 페이지로 간다 → 새 페이지에서 판이 왼쪽으로 0.4초에 빠져나간다. */
+/* ===== 공통 ③ 메뉴를 누르면 먹색 막이 올라와 화면을 덮고, 다음 페이지에서 위로 빠져나간다 (#88 색 판이 덮는 전환)
+   막이 아래에서 0.6초에 올라와 덮는다 → 막 가운데에 갈 페이지 이름이 가림막 아래에서 올라온다(0.5초) → 다음 페이지로 간다
+   → 새 페이지에서 이름이 위로 빠지고 막이 위로 0.7초에 걷힌다. 그 사이 본문이 48px 아래에서 0.9초에 올라온다. */
 (function(){
-  var root=document.documentElement,w=document.getElementById('wipe');
+  var root=document.documentElement,w=document.getElementById('wipe'),word=document.getElementById('wipe-text');
   if(!w||!root.classList.contains('motion')){return;}
   var busy=false;
   if(root.classList.contains('wipe-in')){
     try{window.sessionStorage.removeItem('kern-wipe');}catch(e){}
     window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){
-      w.classList.add('is-leave');
-      window.setTimeout(function(){root.classList.remove('wipe-in');w.classList.remove('is-leave');},460);
+      w.classList.add('is-leave');root.classList.add('wipe-go');
+      window.setTimeout(function(){root.classList.remove('wipe-in','wipe-go');w.classList.remove('is-leave');},1300);
     });});
   }
   document.querySelectorAll('.menu a').forEach(function(a){
@@ -259,15 +269,16 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
       e.preventDefault();
       if(busy||a.getAttribute('aria-current')==='page'){return;}
       busy=true;
+      if(word){word.textContent=a.textContent;}
       w.classList.add('is-cover');
       window.setTimeout(function(){
         try{window.sessionStorage.setItem('kern-wipe','1');}catch(err){}
         window.location.href=a.href;
-      },400);
+      },860);
     });
   });
   window.addEventListener('pageshow',function(e){
-    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in');}
+    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in','wipe-go');}
   });
 })();
 </script>

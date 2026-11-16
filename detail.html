@@ -58,11 +58,20 @@ main{padding:0 var(--pad) 96px}
 .prose{max-width:36em}
 .prose p+p{margin-top:1.4em}
 
-/* 페이지를 옮길 때 화면을 덮는 색 판 (#88) */
-.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--accent);transform:translateX(100%);pointer-events:none}
-.wipe.is-cover{transform:none;transition:transform .4s cubic-bezier(.7,0,.3,1)}
+/* 페이지를 옮길 때 아래에서 올라와 화면을 덮는 먹색 막 (#88) */
+.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--ink);color:var(--paper);transform:translateY(101%);
+  pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.wipe::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--accent)}
+.wipe-word{display:block;overflow:hidden;padding:.1em .1em .22em;font-family:var(--serif);font-style:italic;font-size:clamp(56px,11vw,168px);line-height:1}
+.wipe-word span{display:block;transform:translateY(120%)}
+.wipe.is-cover{transform:none;transition:transform .6s cubic-bezier(.76,0,.24,1)}
+.wipe.is-cover .wipe-word span{transform:none;transition:transform .5s var(--out3) .3s}
 html.wipe-in .wipe{transform:none}
-html.wipe-in .wipe.is-leave{transform:translateX(-100%);transition:transform .4s cubic-bezier(.7,0,.3,1)}
+html.wipe-in .wipe .wipe-word span{transform:none}
+html.wipe-in .wipe.is-leave{transform:translateY(-101%);transition:transform .7s cubic-bezier(.76,0,.24,1) .14s}
+html.wipe-in .wipe.is-leave .wipe-word span{transform:translateY(-120%);transition:transform .45s cubic-bezier(.55,.085,.68,.53)}
+html.wipe-in main.rise{transform:translateY(48px);opacity:0}
+html.wipe-in.wipe-go main.rise{transform:none;opacity:1;transition:transform .9s var(--out3) .32s,opacity .6s ease-out .32s}
 
 /* 커서 (#6) — 마우스가 있는 기기에서만 켠다 */
 .cur{position:fixed;left:0;top:0;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s var(--out2);will-change:transform}
@@ -147,10 +156,24 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 .page.is-half .block{color:var(--ink)}
 .marg .meta{margin-top:10px}
 
+/* 견본 ③ 다시: 종이 한 장, 여백 안내선 4개, 치수, 글 상자 */
+.page{position:relative;height:220px;padding:0;--m:8px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.page .g{position:absolute;background:var(--accent)}
+.page .gt,.page .gb{left:0;right:0;height:1px}
+.page .gl,.page .gr{top:0;bottom:0;width:1px}
+.page .gt{top:var(--m)} .page .gb{bottom:var(--m)} .page .gl{left:var(--m)} .page .gr{right:var(--m)}
+.page .dim{position:absolute;font-family:var(--mono);font-weight:400;font-size:10px;line-height:1;color:var(--accent);transition:opacity .2s var(--out2)}
+.page .dt{left:50%;top:calc(var(--m) / 2);transform:translate(-50%,-50%)}
+.page .dl{top:50%;left:calc(var(--m) / 2);transform:translate(-50%,-50%)}
+.page.is-tight .dim{opacity:0}
+.page .block{position:absolute;left:var(--m);top:var(--m);right:var(--m);bottom:var(--m);height:auto;padding:10px 12px;
+  font-size:15px;line-height:1.7;color:var(--ink);background:rgba(36,54,232,.06);overflow:hidden}
+html[data-mode="dark"] .page .block{background:rgba(147,160,255,.1)}
+
 </style>
 </head>
 <body>
-<div class="wipe" id="wipe" aria-hidden="true"></div>
+<div class="wipe" id="wipe" aria-hidden="true"><span class="wipe-word"><span id="wipe-text">Spacing</span></span></div>
 
 <header class="site-head">
   <nav class="menu">
@@ -160,7 +183,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   </nav>
 </header>
 
-<main>
+<main class="rise">
   <h1 class="title">Spacing</h1>
   <div class="bar" id="bar" aria-hidden="true"></div>
   <nav class="spy" id="spy" aria-label="이 페이지의 구간">
@@ -206,8 +229,12 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
       <p class="meta num">03</p>
       <h2 class="sub"><span class="mask"><span class="line">Margin</span></span></h2>
       <div class="spec marg" id="marg">
-        <div class="page" id="marg-page"><div class="block" aria-hidden="true">여백은 남은 자리가 아니라 먼저 정하는 자리다. 글이 놓일 곳보다 비워 둘 곳을 먼저 그리면 무엇이 중요한지가 드러난다. 여백은 남은 자리가 아니라 먼저 정하는 자리다. 글이 놓일 곳보다 비워 둘 곳을 먼저 그리면 무엇이 중요한지가 드러난다. 여백은 남은 자리가 아니라 먼저 정하는 자리다. 글이 놓일 곳보다 비워 둘 곳을 먼저 그리면 무엇이 중요한지가 드러난다. 여백은 남은 자리가 아니라 먼저 정하는 자리다. 글이 놓일 곳보다 비워 둘 곳을 먼저 그리면 무엇이 중요한지가 드러난다.</div></div>
-        <p class="meta">Margin <span id="marg-num">8</span>px</p>
+        <div class="page" id="marg-page" data-cursor="Drag">
+          <i class="g gt"></i><i class="g gb"></i><i class="g gl"></i><i class="g gr"></i>
+          <b class="dim dt" id="marg-t" aria-hidden="true">8</b><b class="dim dl" id="marg-l" aria-hidden="true">8</b>
+          <p class="block">여백은 남은 자리가 아니라 먼저 정하는 자리다.</p>
+        </div>
+        <p class="meta">Margin <span id="marg-num">8</span>px &middot; scroll or drag</p>
       </div>
       <div class="prose">
         <p style="--p:0">여백은 남은 자리가 아니라 먼저 정하는 자리다. 글이 놓일 곳보다 비워 둘 곳을 먼저 그리면 무엇이 중요한지가 드러난다.</p>
@@ -313,17 +340,18 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   });
 })();
 
-/* ===== 공통 ③ 메뉴를 누르면 색 판이 화면을 덮고, 다음 페이지에서 빠져나간다 (#88 색 판이 덮는 전환)
-   강조색 판이 오른쪽 바깥에서 0.4초에 화면을 덮는다 → 다 덮이면 다음 페이지로 간다 → 새 페이지에서 판이 왼쪽으로 0.4초에 빠져나간다. */
+/* ===== 공통 ③ 메뉴를 누르면 먹색 막이 올라와 화면을 덮고, 다음 페이지에서 위로 빠져나간다 (#88 색 판이 덮는 전환)
+   막이 아래에서 0.6초에 올라와 덮는다 → 막 가운데에 갈 페이지 이름이 가림막 아래에서 올라온다(0.5초) → 다음 페이지로 간다
+   → 새 페이지에서 이름이 위로 빠지고 막이 위로 0.7초에 걷힌다. 그 사이 본문이 48px 아래에서 0.9초에 올라온다. */
 (function(){
-  var root=document.documentElement,w=document.getElementById('wipe');
+  var root=document.documentElement,w=document.getElementById('wipe'),word=document.getElementById('wipe-text');
   if(!w||!root.classList.contains('motion')){return;}
   var busy=false;
   if(root.classList.contains('wipe-in')){
     try{window.sessionStorage.removeItem('kern-wipe');}catch(e){}
     window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){
-      w.classList.add('is-leave');
-      window.setTimeout(function(){root.classList.remove('wipe-in');w.classList.remove('is-leave');},460);
+      w.classList.add('is-leave');root.classList.add('wipe-go');
+      window.setTimeout(function(){root.classList.remove('wipe-in','wipe-go');w.classList.remove('is-leave');},1300);
     });});
   }
   document.querySelectorAll('.menu a').forEach(function(a){
@@ -332,15 +360,16 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
       e.preventDefault();
       if(busy||a.getAttribute('aria-current')==='page'){return;}
       busy=true;
+      if(word){word.textContent=a.textContent;}
       w.classList.add('is-cover');
       window.setTimeout(function(){
         try{window.sessionStorage.setItem('kern-wipe','1');}catch(err){}
         window.location.href=a.href;
-      },400);
+      },860);
     });
   });
   window.addEventListener('pageshow',function(e){
-    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in');}
+    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in','wipe-go');}
   });
 })();
 </script>
@@ -369,11 +398,11 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 </script><script>
 /* detail ③ 읽은 만큼 차는 막대 (#10 스크롤 프로그레스) + ④ 지금 보는 구간 (#51 스크롤스파이) + ⑦ 여백 스크럽 (#50 스크롤 스크럽)
    막대 폭 = 페이지를 스크롤한 비율(끝에서 1px 이내면 100%). 화면 위에서 35% 지점을 지난 마지막 구간이 현재 구간.
-   여백 견본은 화면 아래에서 올라오는 동안 안쪽 여백이 8px → 56px로 스크롤에 바로 붙어 늘어난다. */
+   여백 견본은 화면 아래에서 올라오는 동안 여백이 8px → 72px로 스크롤에 바로 붙어 늘어난다(좁은 화면에서는 종이 폭의 14%까지). 종이를 끌어서 직접 정할 수도 있다. */
 (function(){
   var bar=document.getElementById('bar'),links=document.querySelectorAll('#spy a'),rows=document.querySelectorAll('#rows .row');
   var page=document.getElementById('marg-page'),num=document.getElementById('marg-num');
-  var M0=8,M1=56,tick=false;
+  var M0=8,M1=72,tick=false;
   function update(){
     tick=false;
     var vh=window.innerHeight,y=window.pageYOffset||0,max=document.documentElement.scrollHeight-vh;
@@ -381,12 +410,32 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
     var now=0;
     rows.forEach(function(r,i){if(r.getBoundingClientRect().top<=vh*0.35){now=i;}});
     links.forEach(function(a,i){a.classList.toggle('is-now',i===now);});
-    if(page){
+    if(page&&!manual){
       var top=page.getBoundingClientRect().top,start=vh*0.95,end=Math.max(vh*0.3,top-(max-y));
       var q=start>end?(start-top)/(start-end):1;q=Math.max(0,Math.min(1,q));
-      var m=Math.round(M0+(M1-M0)*q);
-      page.style.padding=m+'px';page.classList.toggle('is-half',q>=0.5);
-      if(num){num.textContent=m;}
+      setMargin(M0+(m1()-M0)*q);
+    }
+  }
+  /* 여백 값 하나로 안내선 4개·글 상자·치수 2개·아래 수치를 함께 바꾼다 */
+  var manual=false,dt=document.getElementById('marg-t'),dl=document.getElementById('marg-l');
+  function m1(){return page?Math.min(M1,Math.round(page.clientWidth*0.14)):M1;}
+  function setMargin(v){
+    var m=Math.round(Math.max(M0,Math.min(m1(),v)));
+    page.style.setProperty('--m',m+'px');page.classList.toggle('is-tight',m<22);
+    if(num){num.textContent=m;}if(dt){dt.textContent=m;}if(dl){dl.textContent=m;}
+  }
+  /* 종이를 누르고 끌면 가장 가까운 변까지의 거리가 여백이 된다. 끈 뒤에는 종이가 화면 밖으로 나갈 때까지 스크롤이 값을 바꾸지 않는다. */
+  if(page){
+    var down=false;
+    function drag(e){
+      var r=page.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+      manual=true;setMargin(Math.min(x,y,r.width-x,r.height-y));
+    }
+    page.addEventListener('pointerdown',function(e){down=true;if(page.setPointerCapture){try{page.setPointerCapture(e.pointerId);}catch(err){}}drag(e);});
+    page.addEventListener('pointermove',function(e){if(down){drag(e);}});
+    ['pointerup','pointercancel'].forEach(function(n){page.addEventListener(n,function(){down=false;});});
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(l){if(!l[0].isIntersecting){manual=false;}},{threshold:0}).observe(page);
     }
   }
   function ask(){if(!tick){tick=true;window.requestAnimationFrame(update);}}

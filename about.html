@@ -12,7 +12,8 @@
 <script>
 /* 움직임을 써도 되는 환경에서만 html에 motion 표시를 단다. 스크립트가 꺼져 있거나 '동작 줄이기'가 켜져 있으면 완성된 글이 바로 보인다. */
 (function(){var d=document.documentElement;
-  if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){d.classList.add('motion');}
+  if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){d.classList.add('motion');
+    try{if(window.sessionStorage.getItem('kern-wipe')==='1'){d.classList.add('wipe-in');}}catch(e){}}
 })();
 </script>
 <style>
@@ -56,6 +57,12 @@ main{padding:0 var(--pad) 96px}
 .meta{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted)}
 .prose{max-width:36em}
 .prose p+p{margin-top:1.4em}
+
+/* 페이지를 옮길 때 화면을 덮는 색 판 (#88) */
+.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--accent);transform:translateX(100%);pointer-events:none}
+.wipe.is-cover{transform:none;transition:transform .4s cubic-bezier(.7,0,.3,1)}
+html.wipe-in .wipe{transform:none}
+html.wipe-in .wipe.is-leave{transform:translateX(-100%);transition:transform .4s cubic-bezier(.7,0,.3,1)}
 
 /* 커서 (#6) — 마우스가 있는 기기에서만 켠다 */
 .cur{position:fixed;left:0;top:0;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s var(--out2);will-change:transform}
@@ -110,6 +117,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 </style>
 </head>
 <body>
+<div class="wipe" id="wipe" aria-hidden="true"></div>
 
 <header class="site-head">
   <nav class="menu">
@@ -229,6 +237,37 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
       inner.style.transform='translate('+((e.clientX-(r.left+r.width/2))*PULL).toFixed(2)+'px,'+((e.clientY-(r.top+r.height/2))*PULL).toFixed(2)+'px)';
     });
     a.addEventListener('mouseleave',function(){a.classList.add('is-back');inner.style.transform='translate(0,0)';});
+  });
+})();
+
+/* ===== 공통 ③ 메뉴를 누르면 색 판이 화면을 덮고, 다음 페이지에서 빠져나간다 (#88 색 판이 덮는 전환)
+   강조색 판이 오른쪽 바깥에서 0.4초에 화면을 덮는다 → 다 덮이면 다음 페이지로 간다 → 새 페이지에서 판이 왼쪽으로 0.4초에 빠져나간다. */
+(function(){
+  var root=document.documentElement,w=document.getElementById('wipe');
+  if(!w||!root.classList.contains('motion')){return;}
+  var busy=false;
+  if(root.classList.contains('wipe-in')){
+    try{window.sessionStorage.removeItem('kern-wipe');}catch(e){}
+    window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){
+      w.classList.add('is-leave');
+      window.setTimeout(function(){root.classList.remove('wipe-in');w.classList.remove('is-leave');},460);
+    });});
+  }
+  document.querySelectorAll('.menu a').forEach(function(a){
+    a.addEventListener('click',function(e){
+      if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
+      e.preventDefault();
+      if(busy||a.getAttribute('aria-current')==='page'){return;}
+      busy=true;
+      w.classList.add('is-cover');
+      window.setTimeout(function(){
+        try{window.sessionStorage.setItem('kern-wipe','1');}catch(err){}
+        window.location.href=a.href;
+      },400);
+    });
+  });
+  window.addEventListener('pageshow',function(e){
+    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in');}
   });
 })();
 </script>

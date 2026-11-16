@@ -12,7 +12,8 @@
 <script>
 /* 움직임을 써도 되는 환경에서만 html에 motion 표시를 단다. 스크립트가 꺼져 있거나 '동작 줄이기'가 켜져 있으면 완성된 글이 바로 보인다. */
 (function(){var d=document.documentElement;
-  if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){d.classList.add('motion');}
+  if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){d.classList.add('motion');
+    try{if(window.sessionStorage.getItem('kern-wipe')==='1'){d.classList.add('wipe-in');}}catch(e){}}
 })();
 </script>
 <style>
@@ -56,6 +57,12 @@ main{padding:0 var(--pad) 96px}
 .meta{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted)}
 .prose{max-width:36em}
 .prose p+p{margin-top:1.4em}
+
+/* 페이지를 옮길 때 화면을 덮는 색 판 (#88) */
+.wipe{position:fixed;left:0;top:0;width:100%;height:100%;z-index:990;background:var(--accent);transform:translateX(100%);pointer-events:none}
+.wipe.is-cover{transform:none;transition:transform .4s cubic-bezier(.7,0,.3,1)}
+html.wipe-in .wipe{transform:none}
+html.wipe-in .wipe.is-leave{transform:translateX(-100%);transition:transform .4s cubic-bezier(.7,0,.3,1)}
 
 /* 커서 (#6) — 마우스가 있는 기기에서만 켠다 */
 .cur{position:fixed;left:0;top:0;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s var(--out2);will-change:transform}
@@ -112,9 +119,32 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 }
 @media (max-width:480px){.dial{grid-template-columns:1fr auto;row-gap:0}.dial .meta:first-child{grid-column:1 / -1;padding-top:10px}.dial output{min-width:0}}
 
+/* 굴러가는 숫자 (#48) */
+.roll{display:inline-flex;align-items:flex-end;line-height:1.15;vertical-align:bottom}
+.roll .col{display:inline-block;height:1.15em;overflow:hidden}
+.roll .strip{display:block;transition:transform .4s cubic-bezier(.25,.8,.25,1)}
+.roll .strip b{display:block;height:1.15em;font-weight:400}
+.dial output{display:inline-flex;justify-content:flex-end;align-items:flex-end;line-height:1.15;white-space:pre}
+/* 원을 도는 글자 띠 (#57) */
+.ring{width:88px;height:88px;justify-self:end;align-self:center}
+.ring svg{display:block;width:100%;height:100%;overflow:visible}
+.ring text{fill:var(--ink)}
+.ring .ra text{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
+.ring .rb text{font-family:var(--serif);font-style:italic;font-size:15px}
+.ring .rl{fill:none;stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.5}
+.ring .rd{fill:var(--accent)}
+.hero{grid-template-columns:minmax(0,1fr) auto}
+.kern,.dial{grid-column:1 / -1}
+@media (min-width:900px){
+  .hero{grid-template-columns:minmax(0,1fr) minmax(0,20em)}
+  .kern{grid-column:1;grid-row:1 / span 2}
+  .ring{grid-column:2;grid-row:2;width:clamp(140px,13vw,200px);height:clamp(140px,13vw,200px);align-self:end}
+}
+
 </style>
 </head>
 <body>
+<div class="wipe" id="wipe" aria-hidden="true"></div>
 
 <header class="site-head">
   <nav class="menu">
@@ -128,10 +158,22 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   <div class="hero">
     <h1 class="kern" id="kern" aria-label="Kern"><span class="ch" style="--i:0" aria-hidden="true">K</span><span class="ch" style="--i:1" aria-hidden="true">e</span><span class="ch" style="--i:2" aria-hidden="true">r</span><span class="ch" style="--i:3" aria-hidden="true">n</span></h1>
     <p class="lede">글자 사이 1/1000 em을 고르는 일.</p>
+    <div class="ring" id="ring" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <defs>
+          <path id="ring-a" d="M16,100 a84,84 0 1,1 168,0 a84,84 0 1,1 -168,0"/>
+          <path id="ring-b" d="M42,100 a58,58 0 1,1 116,0 a58,58 0 1,1 -116,0"/>
+        </defs>
+        <circle class="rl" cx="100" cy="100" r="72"/>
+        <g class="ra" id="ring-ga"><text><textPath href="#ring-a" textLength="522" lengthAdjust="spacing">KERNING · LEADING · MARGIN · KERNING · LEADING · MARGIN · </textPath></text></g>
+        <g class="rb" id="ring-gb"><text><textPath href="#ring-b" textLength="358" lengthAdjust="spacing">Space between · Space between · </textPath></text></g>
+        <circle class="rd" cx="100" cy="100" r="3"/>
+      </svg>
+    </div>
     <div class="dial">
       <label class="meta" for="kern-range">Drag to kern</label>
       <input type="range" id="kern-range" min="-80" max="200" step="1" value="0" data-cursor="Drag">
-      <output class="meta" id="kern-out" for="kern-range">0 / 1000 em</output>
+      <output class="meta" id="kern-out" for="kern-range" aria-label="0 / 1000 em"><span class="roll" id="kern-roll" aria-hidden="true"></span><span aria-hidden="true"> / 1000 em</span></output>
     </div>
   </div>
   <div class="floor" id="floor"><canvas id="floor-canvas" aria-hidden="true"></canvas></div>
@@ -233,6 +275,37 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
     a.addEventListener('mouseleave',function(){a.classList.add('is-back');inner.style.transform='translate(0,0)';});
   });
 })();
+
+/* ===== 공통 ③ 메뉴를 누르면 색 판이 화면을 덮고, 다음 페이지에서 빠져나간다 (#88 색 판이 덮는 전환)
+   강조색 판이 오른쪽 바깥에서 0.4초에 화면을 덮는다 → 다 덮이면 다음 페이지로 간다 → 새 페이지에서 판이 왼쪽으로 0.4초에 빠져나간다. */
+(function(){
+  var root=document.documentElement,w=document.getElementById('wipe');
+  if(!w||!root.classList.contains('motion')){return;}
+  var busy=false;
+  if(root.classList.contains('wipe-in')){
+    try{window.sessionStorage.removeItem('kern-wipe');}catch(e){}
+    window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){
+      w.classList.add('is-leave');
+      window.setTimeout(function(){root.classList.remove('wipe-in');w.classList.remove('is-leave');},460);
+    });});
+  }
+  document.querySelectorAll('.menu a').forEach(function(a){
+    a.addEventListener('click',function(e){
+      if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
+      e.preventDefault();
+      if(busy||a.getAttribute('aria-current')==='page'){return;}
+      busy=true;
+      w.classList.add('is-cover');
+      window.setTimeout(function(){
+        try{window.sessionStorage.setItem('kern-wipe','1');}catch(err){}
+        window.location.href=a.href;
+      },400);
+    });
+  });
+  window.addEventListener('pageshow',function(e){
+    if(e.persisted){busy=false;w.classList.remove('is-cover','is-leave');root.classList.remove('wipe-in');}
+  });
+})();
 </script>
 <script>
 /* index ① 제목이 한 자씩 올라온다 (#52 한 자씩 조립)
@@ -249,10 +322,36 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 (function(){
   var h=document.getElementById('kern'),r=document.getElementById('kern-range'),o=document.getElementById('kern-out');
   if(!h||!r||!o){return;}
+  /* 수치는 바뀐 자리만 굴러간다 (#48 바뀐 자리만 굴러가는 숫자). 자릿수가 달라지면 굴리지 않고 바로 바꾼다. */
+  var box=document.getElementById('kern-roll'),cols=[],sign=null;
+  function build(n){
+    box.innerHTML='';cols=[];
+    sign=document.createElement('span');box.appendChild(sign);
+    for(var i=0;i<n;i++){
+      var c=document.createElement('span');c.className='col';
+      var st=document.createElement('span');st.className='strip';
+      for(var d=0;d<10;d++){var b=document.createElement('b');b.textContent=d;st.appendChild(b);}
+      c.appendChild(st);box.appendChild(c);cols.push(st);
+    }
+  }
+  function roll(v){
+    var txt=String(Math.abs(v)),label=(v>0?'+':v<0?'−':'')+txt+' / 1000 em';
+    o.setAttribute('aria-label',label);
+    if(!box){o.textContent=label;return;}
+    if(cols.length!==txt.length){
+      build(txt.length);
+      cols.forEach(function(st,i){st.style.transition='none';st.style.transform='translateY(-'+(txt.charAt(i)*1.15)+'em)';});
+      void box.offsetWidth;
+      cols.forEach(function(st){st.style.transition='';});
+    }else{
+      cols.forEach(function(st,i){st.style.transform='translateY(-'+(txt.charAt(i)*1.15)+'em)';});
+    }
+    sign.textContent=v>0?'+':v<0?'−':'';
+  }
   function apply(){
     var v=parseInt(r.value,10)||0;
     h.style.setProperty('--k',v);
-    o.textContent=(v>0?'+':v<0?'\u2212':'')+Math.abs(v)+' / 1000 em';
+    roll(v);
   }
   r.addEventListener('input',apply);
   apply();
@@ -261,7 +360,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 /* index ③ 블록 바닥 (#65 솟아오르는 블록 바닥) + 슬라이더와 조합
    16×16 블록 바닥. 커서 아래 블록이 최대 60px 솟고 둘레도 언덕 모양으로 함께 솟는다.
    새 칸에 들어갈 때마다, 한 칸에 머무르면 0.65초마다 그 칸에서 물결이 초속 6.5칸으로 퍼진다(최대 30px, 2.6초 뒤 사라짐).
-   높이는 스프링(강도 170, 감쇠 16)으로 따라간다. 손가락은 누른 칸에서 물결이 퍼진다.
+   높이는 스프링(강도 170, 감쇠 16)으로 따라간다. 누르면 그 칸에서 두 배 높이의 물결이 한 번 더 퍼진다.
    조합: 위 슬라이더 값이 블록 사이 간격도 정한다(-80 → 0.9배, 200 → 1.25배). */
 (function(){
   var box=document.getElementById('floor'),cv=document.getElementById('floor-canvas'),note=document.getElementById('floor-note'),range=document.getElementById('kern-range');
@@ -343,7 +442,7 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
         r=ripples[n];age=(now-r.t)/1000;dx=i-r.i;dy=j-r.j;d=Math.sqrt(dx*dx+dy*dy);
         if(d<0.5){continue;}
         q=d-age*WAVE_SPEED;
-        s+=amp*Math.exp(-age*1.7)*Math.exp(-q*q/1.1);
+        s+=amp*(r.k||1)*Math.exp(-age*1.7)*Math.exp(-q*q/1.1);
       }
       tg[j*N+i]=Math.min(MAX,Math.max(t,s));
     }}
@@ -371,13 +470,32 @@ html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
   resize();
   if(!MOTION){return;}   /* '동작 줄이기'에서는 평평한 바닥만 그려 둔다 */
   cv.addEventListener('pointermove',enter);
-  cv.addEventListener('pointerdown',enter);
+  cv.addEventListener('pointerdown',function(e){enter(e);if(cur){ripples.push({i:cur.i,j:cur.j,t:performance.now(),k:2});}});
   cv.addEventListener('pointerleave',leave);
   cv.addEventListener('pointercancel',leave);
   cv.addEventListener('pointerup',function(e){if(e.pointerType!=='mouse'){leave();}});
   if('IntersectionObserver' in window){
     new IntersectionObserver(function(list){visible=list[0].isIntersecting;if(!visible){running=false;leave();}},{threshold:0}).observe(box);
   }
+})();
+</script><script>
+/* index ④ 원을 도는 글자 띠 (#57 원을 도는 글자 띠)
+   스크롤 100px마다 15도 돈다. 바깥 띠는 시계 방향, 안쪽 띠는 반시계 방향. 가만히 있어도 1초에 6도씩 천천히 돈다. */
+(function(){
+  var ga=document.getElementById('ring-ga'),gb=document.getElementById('ring-gb'),ring=document.getElementById('ring');
+  if(!ga||!gb||!document.documentElement.classList.contains('motion')){return;}
+  var DRIFT=6,PER=0.15,t0=performance.now(),on=true;
+  function frame(now){
+    if(!on){return;}
+    var a=(window.pageYOffset||0)*PER+(now-t0)/1000*DRIFT;
+    ga.setAttribute('transform','rotate('+a.toFixed(2)+' 100 100)');
+    gb.setAttribute('transform','rotate('+(-a).toFixed(2)+' 100 100)');
+    window.requestAnimationFrame(frame);
+  }
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(l){var v=l[0].isIntersecting;if(v&&!on){on=true;window.requestAnimationFrame(frame);}else if(!v){on=false;}},{threshold:0}).observe(ring);
+  }
+  window.requestAnimationFrame(frame);
 })();
 </script>
 </body>

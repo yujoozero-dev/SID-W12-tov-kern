@@ -62,6 +62,9 @@ main{padding:0 var(--pad) 96px}
 html.has-cursor .cur{opacity:1}
 html.has-cursor.cursor-out .cur{opacity:0}
 html.has-cursor,html.has-cursor *{cursor:none!important}
+/* 커서를 따라다니는 잉크 잔상(캔버스) */
+.cur-trail{width:100%;height:100%;z-index:997;mix-blend-mode:multiply}
+html[data-mode="dark"] .cur-trail{mix-blend-mode:screen}
 .cur-dot i{display:block;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--ink);transition:transform .25s var(--out2),background-color .4s var(--out2)}
 .cur-ring i{display:block;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:1px solid var(--ink);
   transition:transform .25s var(--out2),border-color .25s var(--out2),background-color .25s var(--out2)}
@@ -92,6 +95,15 @@ html.has-cursor,html.has-cursor *{cursor:none!important}
 .mode-word span{display:block}
 .mode-word .is-out{position:absolute;left:0;top:0;animation:word-out .16s cubic-bezier(.55,.085,.68,.53) forwards}
 .mode-word .is-inn{animation:word-in .22s var(--out2) .16s both}
+/* 스위치에서 오른쪽 여백의 원까지 이어지는 1px 선 */
+.entry{position:relative}
+.link{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.link path{fill:none;stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke;transition:stroke .4s var(--out2)}
+.link .base{opacity:.9}
+.link .pulse{stroke:var(--accent);stroke-width:2;opacity:0}
+.link .orb{fill:var(--ink);opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(.9);transition:opacity .5s var(--out2),transform .5s var(--out2),fill .4s var(--out2)}
+.link.is-on .orb{opacity:1;transform:none}
+@media (max-width:899px){.entry-head{margin-bottom:104px}}
 @keyframes word-out{to{transform:translateY(-6px);opacity:0}}
 @keyframes word-in{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
 
@@ -127,6 +139,7 @@ html.has-cursor,html.has-cursor *{cursor:none!important}
 <script>
 /* ===== 공통 ① 커서 (#6 커스텀 커서)
    점은 포인터에 바로 붙고, 링은 0.18초쯤 늦게 따라온다. 링크·버튼 위에서는 링이 1.8배로 커진다.
+   지나간 길에는 잉크 잔상이 0.9초 동안 번지며 사라진다.
    data-cursor 가 적힌 곳에서는 링이 채워지고 그 글자가 링 안에 보인다. 터치 기기와 '동작 줄이기'에서는 만들지 않는다. */
 (function(){
   var root=document.documentElement;
@@ -135,14 +148,50 @@ html.has-cursor,html.has-cursor *{cursor:none!important}
   var LAG=0.06;            /* 링이 따라오는 시간 상수(초). 0.06이면 0.18초쯤에 거의 붙는다 */
   var HOT='a,button,input,[data-cursor]';
   function make(cls,html){var e=document.createElement('div');e.className='cur '+cls;e.setAttribute('aria-hidden','true');e.innerHTML=html;document.body.appendChild(e);return e;}
+  var trail=document.createElement('canvas');trail.className='cur cur-trail';trail.setAttribute('aria-hidden','true');document.body.appendChild(trail);
+  var tctx=trail.getContext('2d');
   var dot=make('cur-dot','<i></i>'), ring=make('cur-ring','<i></i><b></b>'), label=ring.querySelector('b');
   var x=0,y=0,rx=0,ry=0,shown=false,last=0;
+  /* 잉크 잔상: 지나간 길에 6px 간격으로 번짐 자국을 남긴다. 자국은 0.9초 동안 반지름 10px → 26px로 번지며 옅어져 사라진다. */
+  var LIFE=900,STEP=6,R0=10,R1=26,ALPHA=.2,pts=[],px=0,py=0,dpr=1,sprites={};
+  function size(){dpr=Math.min(window.devicePixelRatio||1,2);trail.width=Math.round(window.innerWidth*dpr);trail.height=Math.round(window.innerHeight*dpr);}
+  function sprite(dark){
+    var key=dark?'d':'l';if(sprites[key]){return sprites[key];}
+    var c=document.createElement('canvas');c.width=c.height=64;var g=c.getContext('2d');
+    var rg=g.createRadialGradient(32,32,0,32,32,32);
+    if(dark){rg.addColorStop(0,'rgba(245,244,240,.95)');rg.addColorStop(.4,'rgba(147,160,255,.45)');rg.addColorStop(1,'rgba(147,160,255,0)');}
+    else{rg.addColorStop(0,'rgba(17,17,16,.95)');rg.addColorStop(.4,'rgba(36,54,232,.4)');rg.addColorStop(1,'rgba(36,54,232,0)');}
+    g.fillStyle=rg;g.fillRect(0,0,64,64);sprites[key]=c;return c;
+  }
+  function drop(nx,ny,now){
+    var dx=nx-px,dy=ny-py,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<STEP){return;}
+    var n=Math.min(40,Math.floor(d/STEP));
+    for(var i=1;i<=n;i++){pts.push({x:px+dx*i/n,y:py+dy*i/n,t:now});}
+    px=nx;py=ny;
+    if(pts.length>400){pts.splice(0,pts.length-400);}
+  }
+  function paint(now){
+    tctx.setTransform(dpr,0,0,dpr,0,0);
+    tctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+    if(!pts.length){return;}
+    while(pts.length&&now-pts[0].t>LIFE){pts.shift();}
+    var img=sprite(root.getAttribute('data-mode')==='dark');
+    for(var i=0;i<pts.length;i++){
+      var p=pts[i],a=(now-p.t)/LIFE,r=R0+(R1-R0)*a;
+      tctx.globalAlpha=ALPHA*(1-a)*(1-a);
+      tctx.drawImage(img,p.x-r,p.y-r,r*2,r*2);
+    }
+    tctx.globalAlpha=1;
+  }
+  size();window.addEventListener('resize',size);
   function frame(t){
     var dt=Math.min(.05,(t-last)/1000||.016);last=t;
     var k=1-Math.exp(-dt/LAG);
     rx+=(x-rx)*k;ry+=(y-ry)*k;
     dot.style.transform='translate3d('+x+'px,'+y+'px,0)';
     ring.style.transform='translate3d('+rx+'px,'+ry+'px,0)';
+    paint(t);
     window.requestAnimationFrame(frame);
   }
   function state(el){
@@ -154,7 +203,8 @@ html.has-cursor,html.has-cursor *{cursor:none!important}
   window.addEventListener('pointermove',function(e){
     if(e.pointerType==='touch'){return;}
     x=e.clientX;y=e.clientY;
-    if(!shown){shown=true;rx=x;ry=y;root.classList.add('has-cursor');window.requestAnimationFrame(frame);}
+    if(!shown){shown=true;rx=x;ry=y;px=x;py=y;root.classList.add('has-cursor');window.requestAnimationFrame(frame);}
+    drop(x,y,performance.now());
     root.classList.remove('cursor-out');
     state(e.target);
   },{passive:true});
@@ -202,6 +252,44 @@ html.has-cursor,html.has-cursor *{cursor:none!important}
     var neu=document.createElement('span');neu.className='is-inn';neu.textContent=text;
     word.appendChild(neu);
     window.setTimeout(function(){if(old.parentNode){old.remove();}},200);
+  });
+})();
+
+/* about ② 스위치에서 나온 선이 오른쪽 여백의 원까지 이어진다 (#67 펜으로 그려 나가기) — 스위치와 조합
+   스위치를 누르면 강조색 선 한 토막이 스위치 옆에서 출발해 0.9초 동안 선을 따라 달려 원을 한 바퀴 돈다.
+   다 돌면 원이 0.5초 동안 채워진다(어두운 화면). 다시 누르면 같은 길을 달린 뒤 원이 비워진다(밝은 화면). */
+(function(){
+  var entry=document.querySelector('.entry'),mode=document.querySelector('.mode'),sw=document.getElementById('mode-switch');
+  if(!entry||!mode||!sw||!document.createElementNS){return;}
+  var NS='http://www.w3.org/2000/svg',motion=document.documentElement.classList.contains('motion');
+  var RUN=900,SEG=90;      /* 달리는 시간(ms), 달리는 토막 길이(px) */
+  function el(n,c){var e=document.createElementNS(NS,n);if(c){e.setAttribute('class',c);}return e;}
+  var svg=el('svg','link');svg.setAttribute('aria-hidden','true');
+  var orb=el('circle','orb'),base=el('path','base'),pulse=el('path','pulse');
+  svg.appendChild(orb);svg.appendChild(base);svg.appendChild(pulse);entry.appendChild(svg);
+  var len=0,timer=null,anim=null;
+  function layout(){
+    var er=entry.getBoundingClientRect(),mr=mode.getBoundingClientRect(),sr=sw.getBoundingClientRect();
+    var W=er.width,wide=window.innerWidth>=900;
+    var r=wide?Math.max(60,Math.min(170,(W-36*16-96)/2)):40;
+    var x0=mr.right-er.left+16,y0=sr.top+sr.height/2-er.top,cx=W-r-1;
+    if(cx<x0+12){cx=x0+12;}
+    var d='M'+x0.toFixed(1)+' '+y0.toFixed(1)+' H'+cx.toFixed(1)+' a'+r+' '+r+' 0 1 1 -0.01 0';
+    base.setAttribute('d',d);pulse.setAttribute('d',d);
+    orb.setAttribute('cx',cx.toFixed(1));orb.setAttribute('cy',(y0+r).toFixed(1));orb.setAttribute('r',r);
+    len=base.getTotalLength();
+    pulse.style.strokeDasharray=SEG+' '+(len+SEG*2);
+    entry.style.minHeight=wide?Math.ceil(y0+r*2+24)+'px':'';
+  }
+  layout();
+  window.addEventListener('resize',layout);
+  if(document.fonts&&document.fonts.ready){document.fonts.ready.then(layout);}
+  sw.addEventListener('click',function(){
+    var on=sw.getAttribute('aria-checked')==='true';
+    window.clearTimeout(timer);if(anim){anim.cancel();anim=null;}
+    if(!motion||!pulse.animate){svg.classList.toggle('is-on',on);return;}
+    anim=pulse.animate([{strokeDashoffset:SEG,opacity:1},{strokeDashoffset:-len,opacity:1}],{duration:RUN,easing:'cubic-bezier(.65,0,.35,1)'});
+    timer=window.setTimeout(function(){svg.classList.toggle('is-on',on);},RUN-80);
   });
 })();
 </script>
